@@ -3,7 +3,7 @@
 Visor de rutas GPX y TCX sobre Google Maps. Funciona en Safari de iPhone y se
 instala en la pantalla de inicio. No necesita Mac ni cuenta de Apple Developer.
 
-Incluye: carga de GPX/TCX, ruta con inicio/fin, distancia, desnivel +/−, tiempo,
+Incluye: **ubicación en vivo** (punto azul, botón para centrar/seguir y aviso de «en la ruta» / «fuera de ruta»), carga de GPX/TCX, ruta con inicio/fin, distancia, desnivel +/−, tiempo,
 perfil de elevación interactivo (al arrastrar el dedo se mueve un marcador por el mapa)
 y cambio entre mapa, satélite y terreno.
 
@@ -24,6 +24,15 @@ y cambio entre mapa, satélite y terreno.
    Alternativa: escríbela en la constante `API_KEY` de `index.html`.
 3. Compartir → **Añadir a pantalla de inicio**.
 4. Pulsa **Abrir** y elige un `.gpx` o `.tcx` desde Archivos, iCloud, etc.
+
+## Ubicación en vivo
+- Pulsa el botón redondo (mira) abajo a la derecha: pide permiso, centra el mapa en ti y te sigue.
+- Si mueves el mapa con el dedo, deja de seguirte; pulsa el botón otra vez para volver a centrar.
+- Arriba verás si estás **en la ruta** (y en qué km) o **fuera de ruta** (a cuántos metros). La línea azul del perfil de elevación marca dónde estás.
+- La ✕ del aviso apaga la ubicación.
+- Mientras está activa, la pantalla no se apaga (para no perder el seguimiento). Gasta batería.
+- iOS no permite seguir la ubicación con la pantalla bloqueada o la app en segundo plano.
+- Necesita HTTPS (GitHub Pages) o localhost.
 
 ## Limitaciones de iOS
 - Las PWA no aparecen en el menú "Compartir → Abrir con…"; el archivo se elige con el botón «Abrir».

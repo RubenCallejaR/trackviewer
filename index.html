@@ -48,6 +48,22 @@
   #empty p { color: var(--muted); margin: 0; max-width: 320px; }
   #setup { display: none; width: 100%; max-width: 360px; flex-direction: column; gap: 8px; }
   #setup input { font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  #banner {
+    position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3; display: none;
+    align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.2); font-size: 14px;
+  }
+  #banner span { flex: 1; }
+  #banner.warn { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #banner button { padding: 4px 10px; }
+  .fab {
+    position: absolute; right: 12px; bottom: 20px; z-index: 3; width: 52px; height: 52px;
+    border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  .fab svg { width: 26px; height: 26px; }
+  .fab.on { color: #1e66f5; }
+  .fab.follow { background: #1e66f5; color: #fff; border-color: #1e66f5; }
   #panel { background: var(--panel); border-top: 1px solid var(--line); padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px); display: none; }
   #stats { display: flex; justify-content: space-between; text-align: center; margin-bottom: 8px; }
   #stats div { flex: 1; }
@@ -72,6 +88,10 @@
 
 <div id="mapwrap">
   <div id="map"></div>
+  <div id="banner"><span id="bannerTxt"></span><button id="stopBtn" aria-label="Dejar de usar mi ubicación">✕</button></div>
+  <button class="fab" id="locBtn" aria-label="Ir a mi ubicación" title="Ir a mi ubicación">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+  </button>
   <div id="empty">
     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20l5-9 4 6 3-4 6 7z"/><circle cx="17" cy="6" r="2"/></svg>
     <h2 style="margin:0">Sin ruta</h2>
@@ -160,9 +180,12 @@ function loadMaps(key) {
 window.initMap = function () {
   map = new google.maps.Map($("map"), {
     center: { lat: 40, lng: -3.7 }, zoom: 5, mapTypeId: $("maptype").value,
-    mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: "greedy"
+    mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: "greedy",
+    zoomControlOptions: { position: google.maps.ControlPosition.LEFT_BOTTOM }
   });
   mapReady = true;
+  // Si el usuario mueve el mapa con el dedo, dejamos de seguirle (como Google Maps)
+  map.addListener("dragstart", () => { if (following) { following = false; updateFab(); } });
   if (current) drawTrack(current);
 };
 window.gm_authFailure = () => showEmpty("Google rechazó la API key. Revisa que Maps JavaScript API esté habilitada y la restricción de dominio.");
@@ -188,7 +211,7 @@ function setHover(i) {
   const pos = { lat: p.lat, lng: p.lng };
   if (!hoverM) hoverM = new google.maps.Marker({
     position: pos, map, zIndex: 99,
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#1e66f5", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 }
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: "#f59e0b", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 }
   });
   else hoverM.setPosition(pos);
 }
@@ -220,6 +243,7 @@ function showTrack(t) {
   renderStats(t);
   drawTrack(t);
   requestAnimationFrame(() => drawChart());
+  updateStatus();
 }
 
 async function handleFile(file) {
@@ -279,12 +303,20 @@ function drawChart() {
   ctx.lineTo(lastX, h - pad.b); ctx.lineTo(pad.l, h - pad.b); ctx.closePath();
   ctx.fillStyle = "rgba(229,57,53,.2)"; ctx.fill();
 
-  // cursor
+  // mi posición actual (línea azul discontinua)
+  if (meIdx != null) {
+    const x = X(t.cum[meIdx]), e = t.points[meIdx].ele;
+    ctx.strokeStyle = "#1e66f5"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, h - pad.b); ctx.stroke(); ctx.setLineDash([]);
+    if (e != null) { ctx.fillStyle = "#1e66f5"; ctx.beginPath(); ctx.arc(x, Y(e), 5, 0, 7); ctx.fill(); }
+  }
+
+  // cursor (al arrastrar el dedo)
   if (hoverIdx != null) {
     const p = t.points[hoverIdx], x = X(t.cum[hoverIdx]);
-    ctx.strokeStyle = "#1e66f5"; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, h - pad.b); ctx.stroke();
-    if (p.ele != null) { ctx.fillStyle = "#1e66f5"; ctx.beginPath(); ctx.arc(x, Y(p.ele), 4, 0, 7); ctx.fill(); }
+    if (p.ele != null) { ctx.fillStyle = "#f59e0b"; ctx.beginPath(); ctx.arc(x, Y(p.ele), 4, 0, 7); ctx.fill(); }
   }
 }
 
@@ -308,6 +340,126 @@ canvas.addEventListener("pointermove", e => { if (e.buttons || e.pointerType ===
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") endPointer(); });
 addEventListener("resize", drawChart);
+
+// ---------- Mi ubicación ----------
+let watchId = null, meM = null, meCircle = null, following = false, firstFix = false;
+let lastFix = null, wakeLock = null, meIdx = null;
+const fab = $("locBtn");
+
+function setBanner(msg, warn) {
+  $("bannerTxt").textContent = msg || "";
+  $("banner").style.display = msg ? "flex" : "none";
+  $("banner").classList.toggle("warn", !!warn);
+}
+function updateFab() {
+  fab.classList.toggle("on", watchId != null);
+  fab.classList.toggle("follow", watchId != null && following);
+}
+function fmtDist(m) { return m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(2) + " km"; }
+
+// Punto más cercano de la ruta (proyección sobre cada tramo, en metros planos)
+function nearestOnTrack(lat, lng) {
+  const t = current; if (!t) return null;
+  const M = 111320, k = Math.cos(lat * Math.PI / 180);
+  let best = Infinity, bestIdx = 0, bestAlong = 0;
+  for (let i = 0; i < t.points.length - 1; i++) {
+    const a = t.points[i], b = t.points[i + 1];
+    const ax = (a.lng - lng) * k * M, ay = (a.lat - lat) * M;
+    const dx = (b.lng - lng) * k * M - ax, dy = (b.lat - lat) * M - ay;
+    const len2 = dx * dx + dy * dy;
+    const u = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    const d = Math.hypot(ax + u * dx, ay + u * dy);
+    if (d < best) {
+      best = d; bestIdx = u > 0.5 ? i + 1 : i;
+      bestAlong = t.cum[i] + u * (t.cum[i + 1] - t.cum[i]);
+    }
+  }
+  return { dist: best, idx: bestIdx, along: bestAlong };
+}
+
+function updateStatus() {
+  if (watchId == null || !lastFix) return;
+  let msg, warn = false;
+  if (current) {
+    const r = nearestOnTrack(lastFix.lat, lastFix.lng);
+    meIdx = r.idx;
+    if (r.dist <= Math.max(30, lastFix.acc)) {
+      msg = `En la ruta · km ${(r.along / 1000).toFixed(2)} de ${(current.total / 1000).toFixed(2)}`;
+    } else { msg = `Fuera de ruta · a ${fmtDist(r.dist)}`; warn = true; }
+  } else { meIdx = null; msg = "Ubicación activa"; }
+  msg += ` · ±${Math.round(lastFix.acc)} m`;
+  if (lastFix.acc > 100) msg += " (señal débil)";
+  setBanner(msg, warn);
+  drawChart();
+}
+
+function onFix(pos) {
+  if (!mapReady) return;
+  const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+  lastFix = { lat, lng, acc: accuracy };
+  const ll = { lat, lng };
+  if (!meM) {
+    meM = new google.maps.Marker({
+      position: ll, map, zIndex: 200, clickable: false, title: "Mi ubicación",
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#1e66f5", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 }
+    });
+    meCircle = new google.maps.Circle({
+      center: ll, radius: accuracy, map, clickable: false,
+      strokeWeight: 0, fillColor: "#1e66f5", fillOpacity: 0.15
+    });
+  } else {
+    meM.setPosition(ll); meCircle.setCenter(ll); meCircle.setRadius(accuracy);
+  }
+  if (firstFix) {
+    firstFix = false;
+    map.setZoom(Math.max(map.getZoom() || 0, 16));
+    map.panTo(ll);
+  } else if (following) {
+    map.panTo(ll);
+  }
+  updateStatus();
+}
+
+function onGeoError(err) {
+  if (err.code === 1) {
+    stopLocating();
+    setBanner("Permiso de ubicación denegado. En el iPhone: Ajustes → Privacidad y seguridad → Localización → Safari (y permite el acceso).", true);
+  } else if (err.code === 2) {
+    setBanner("No se puede obtener la ubicación (sin señal GPS).", true);
+  } else {
+    setBanner("Buscando señal GPS…");
+  }
+}
+
+async function requestWake() {
+  try { if ("wakeLock" in navigator && watchId != null) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && watchId != null) requestWake(); });
+
+function startLocating() {
+  if (!navigator.geolocation) { setBanner("Este navegador no permite usar la ubicación.", true); return; }
+  if (!mapReady) { setBanner("El mapa aún no está cargado: guarda primero tu API key.", true); return; }
+  firstFix = true; following = true;
+  setBanner("Buscando ubicación…");
+  watchId = navigator.geolocation.watchPosition(onFix, onGeoError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+  requestWake(); updateFab();
+}
+
+function stopLocating() {
+  if (watchId != null) navigator.geolocation.clearWatch(watchId);
+  watchId = null; following = false; lastFix = null; meIdx = null;
+  [meM, meCircle].forEach(o => o && o.setMap(null)); meM = meCircle = null;
+  try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null;
+  setBanner(""); updateFab(); drawChart();
+}
+
+fab.onclick = () => {
+  if (watchId == null) return startLocating();
+  following = true;                       // ya activo: volver a centrar y seguir
+  if (lastFix) { map.panTo(lastFix); if (map.getZoom() < 15) map.setZoom(16); }
+  updateFab();
+};
+$("stopBtn").onclick = stopLocating;
 
 // ---------- Arranque ----------
 const savedKey = API_KEY || localStorage.getItem("gmaps_key") || "";

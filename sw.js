@@ -1,5 +1,5 @@
 // Cachea solo el "armazón" de la app; Google Maps siempre va por red.
-const CACHE = "trackviewer-v1";
+const CACHE = "trackviewer-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-180.png"];
 
 self.addEventListener("install", e => {
